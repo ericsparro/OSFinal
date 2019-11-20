@@ -71,16 +71,31 @@ void main() {
 //-------------------------------------Player Readying Up----------------------------------------------------
    char message[256];
    printf("connected client socket to the server socket \n");
-   printf("Type 'ready' to continue: ");
-   scanf("%s", message);
-
-   //sending ready message to server
-   bzero(buffer, 256);
-   status = write(socketid, message, 5);
-   if (status < 0) {   
-	   printf("error while sending client message to server\n");
+   while(1){
+      printf("Type 'ready' to continue or 'x' to quit: ");
+      scanf("%s", message);
+      int isReady = strncmp(message, "ready", 5);
+      if(isReady == 0){
+         //sending ready message to server
+         bzero(buffer, 256);
+         status = write(socketid, message, 5);
+         if (status < 0) {   
+            printf("error while sending client message to server\n");
+            exit(1);
+         }
+         break;
+      }
+      int isQuitting = strncmp(message, "x", 1);
+      if(isQuitting == 0){
+         bzero(buffer, 256);
+         status = write(socketid, message, 5);
+         if (status < 0) {   
+            printf("error while sending client message to server\n");
+            exit(1);
+         }
+         exit(0);
+      }
    }
-
    //server is telling the client what player they are
    bzero(buffer, 256);
       status = read(socketid, buffer, 255);
@@ -121,16 +136,32 @@ void main() {
       if(buffer[0] == '1' || buffer[0] == '2'|| buffer[0] == '3' || buffer[0] == '4' || buffer[0] == '5'){
          printf("Player %s wins!\n", buffer);
          //break;
-         printf("Type 'ready' to continue: ");
-         scanf("%s", message);
-
-         //sending ready message to server
-         bzero(buffer, 256);
-         status = write(socketid, message, 5);
-         if (status < 0) {   
-	         printf("error while sending client message to server\n");
-         }
-
+                  
+         while(1){
+            printf("Type 'ready' to continue or 'x' to quit: ");
+            scanf("%s", message);
+            int isReady = strncmp(message, "ready", 5);
+            if(isReady == 0){
+               //sending ready message to server
+               bzero(buffer, 256);
+               status = write(socketid, message, 5);
+               if (status < 0) {   
+                  printf("error while sending client message to server\n");
+                  exit(1);
+               }
+               break;
+            }
+            int isQuitting = strncmp(message, "x", 1);
+            if(isQuitting == 0){
+               bzero(buffer, 256);
+               status = write(socketid, message, 5);
+               if (status < 0) {   
+                  printf("error while sending client message to server\n");
+                  exit(1);
+               }
+               exit(0);
+            }
+         }         
          //server is telling the client what player they are
          bzero(buffer, 256);
          status = read(socketid, buffer, 255);

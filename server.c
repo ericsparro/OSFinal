@@ -141,29 +141,41 @@ void doprocessing (int sock, int playerNum) {
    while(1) {
       while(!readyUp()){}
 
-	   status= read(sock,buffer,255);
-	   if (status < 0) {
-		   perror("ERROR reading from socket");
-		   exit(1);
-	   }
-
-      int ready = strncmp(buffer, "ready", 5);
-      if(ready == 0) {
-         printf("Player %d is ready\n", playerNum);
-         buffer[0] = playerNum + '0';
-         status = write(sock, buffer, 1);
+      while(1){
+         status= read(sock,buffer,255);
          if (status < 0) {
-            perror("ERROR writing to socket");
+            perror("ERROR reading from socket");
             exit(1);
          }
-         game->numReady += 1;
+
+         int ready = strncmp(buffer, "ready", 5);
+         if(ready == 0) {
+            printf("Player %d is ready\n", playerNum);
+            buffer[0] = playerNum + '0';
+            status = write(sock, buffer, 1);
+            if (status < 0) {
+               perror("ERROR writing to socket");
+               exit(1);
+            }
+            game->numReady += 1;
+            break;
+         }
+         int quit = strncmp(buffer, "x", 1);
+         if (quit == 0){
+            printf("Player %d has quit\n", playerNum);
+            return;
+         }
       }
 
       while (game->numReady < game->numSockets){}
+
+      //Protect critical section: setting/resetting array & game counter
+      sem_wait(&mutex);
       setArray();
       game->endGame = 16;
+      sem_post(&mutex);
+
       bzero(buffer,256);
-      
       arrStr = getArrayStr();
       printf("start:\n%s\n\n", arrStr);
       status = write(sock, arrStr, 40);
@@ -172,7 +184,6 @@ void doprocessing (int sock, int playerNum) {
 //-------------------------------------Game Execution--------------------------------------------------------
 
       while (game->endGame > 0){
-         sem_wait(&mutex);
          bzero(buffer,256); //empty buffer and read input from user
          status = read(sock, buffer, 255);
          if (status < 0){
@@ -189,55 +200,61 @@ void doprocessing (int sock, int playerNum) {
          else if (check == 0 && game->numReady == 1){
             printf("Player %d Quitted The Game\n", playerNum);
             printf("All players have been quitted! (Press Crt+C to close program)\n");
-            sem_post(&mutex); //unlock semaphore if no player continue
             break;
          }
    
          char Selection = buffer[0];
          int available;
+         //Allow server to take input one by one to protect shared memory
+         sem_wait(&mutex);
          value = changeArray(Selection, socketNumber, &available);
+         sem_post(&mutex);
 
-         if (available == 1){
-           printf("Input from player %d is %s and contains %d points\n", playerNum, buffer, value);
-           printf("Player %d's score is now: %d\n", playerNum, game->gameScores[socketNumber]);
-
-           if(game->endGame == 0){ //checking the end game condition and returning who won
+         if(game->endGame == 0){ //checking the end game condition and returning who won
               buffer[0] = findWinner();
               printf("Player %c wins!\n", buffer[0]);
               sem_post(&mutex); //unlock semaphore if game is finished
               break;
-           }
-           else { //if endgame is not met, continue the game
-              arrStr = getArrayStr();
-              char arrStr1[256] = "Keep Going\n";
-              strcat(arrStr1, arrStr);
-              status = write(sock,arrStr1, 51);
-              if (status < 0) {
-                perror("ERROR writing to socket");
-                exit(1);              
-              }
-           }
          }
+
          else{
-           arrStr = getArrayStr();
-           char arrStr1[256] = "Letter Has Been Chosen! Retry!\n";
-           strcat(arrStr1, arrStr);
-           status = write(sock, arrStr1, 71);
-           if (status < 0){
-             perror("ERROR writing to socket");
-             exit(1);
-           }
-         }      
-         sem_post(&mutex);//unlock semaphore after client commnunicate to one player
+            //if endgame is not met, continue the game
+            if (available == 1){
+            printf("Input from player %d is %s and contains %d points\n", playerNum, buffer, value);
+            printf("Player %d's score is now: %d\n", playerNum, game->gameScores[socketNumber]);           
+               
+               arrStr = getArrayStr();
+               char arrStr1[256] = "Keep Going\n";
+               strcat(arrStr1, arrStr);
+               status = write(sock,arrStr1, 51);
+               if (status < 0) {
+                  perror("ERROR writing to socket");
+                  exit(1);              
+               }
+            
+            }
+            else{
+               arrStr = getArrayStr();
+               char arrStr1[256] = "Letter Has Been Chosen! Retry!\n";
+               strcat(arrStr1, arrStr);
+               status = write(sock, arrStr1, 71);
+               if (status < 0){
+                  perror("ERROR writing to socket");
+                  exit(1);
+               }
+            }
+         }
       }
       status = write(sock, buffer, 1);
       if (status < 0) {
 		   perror("ERROR writing to socket");
 		   exit(1);
 	   }
+      //Protect critical section: setting global variables of client's game status
+      sem_wait(&mutex);
       game->gameStart[playerNum -1] = 1;
       game->numReady -= 1;
-      
+      sem_post(&mutex);
    }
 //-----------------------------------------------------------------------------------------------------------
 }
