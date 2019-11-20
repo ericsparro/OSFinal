@@ -12,6 +12,7 @@ on a machine. The name of this machine must be entered in the function gethostby
 #include<sys/socket.h>
 #include<netinet/in.h>
 #include<netdb.h>
+#include<string.h>
 
 #define PORTNUM  1107 /* the port number that the server is listening to*/
 #define DEFAULT_PROTOCOL 0  /*constant for default protocol*/
@@ -120,6 +121,21 @@ void main() {
    while (1){
       printf("Pick up your letter (a to p) & x to exit: ");
       scanf("%s", message);
+      int valid = 0;
+      //check for valid input
+      while (valid == 0)
+      {
+        if (message[0] == 'x' || (message[0] >= 'a'  && message[0] <= 'p'))
+        {
+           valid = 1;
+        }
+        else
+        {
+           printf("Letter is not in range (a to p) or x. Re-enter: ");
+           scanf("%s", message);
+           valid = 0;
+        }
+      }
       status  = write(socketid, message, 1);
       int check = strncmp(message, "x", 1);
       if (check == 0){
